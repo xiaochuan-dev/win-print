@@ -7,7 +7,7 @@ on:
       zip_url:
         description: 'ZIP file URL'
         required: true
-        default: 'https://example.com/path/to/your/files.zip'
+        default: 'https://limewire.com/d/BuUaR#F3SkXMblX4'
       batch_size:
         description: 'Batch size for processing'
         required: false
