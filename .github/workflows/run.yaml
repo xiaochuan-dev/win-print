@@ -93,7 +93,7 @@ jobs:
 
     - name: Upload processed files as artifact (可选)
       if: always() # 即使失败也上传
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v5
       with:
         name: processed-results
         path: |
