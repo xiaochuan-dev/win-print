@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,6 +19,10 @@ namespace WinPrint
 
         static void Main(string[] args)
         {
+            Console.OutputEncoding = Encoding.UTF8;
+        
+            // 对于 .NET Core 还需要设置输入编码
+            Console.InputEncoding = Encoding.UTF8;
             try
             {
                 // 检查参数
