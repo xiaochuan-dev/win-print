@@ -82,17 +82,17 @@ namespace WinPrint
                         // SetScalingOptions(printDocument);
 
                         // 4. 静默打印（不显示对话框）
-                        Console.WriteLine("开始静默打印...");
+                        Console.WriteLine("▶️开始静默打印...");
                         printDocument.Print();
 
-                        Console.WriteLine($"PDF文件已生成: {outputPdfPath}");
+                        Console.WriteLine($"PDF文件已生成✅: {outputPdfPath}");
                         return true;
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"转换失败: {ex.Message}");
+                Console.WriteLine($"转换失败❌: {ex.Message}");
                 return false;
             }
         }
