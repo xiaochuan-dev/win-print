@@ -22,6 +22,11 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Install 7-Zip
+      run: |
+        choco install 7zip -y
+      shell: powershell
+
     - name: Download ZIP file
       id: download
       run: |
@@ -42,66 +47,27 @@ jobs:
         }
       shell: pwsh
 
-    - name: Extract ZIP file
+    - name: Extract ZIP file with 7-Zip
       run: |
         $zipPath = "${{ steps.download.outputs.zip_path }}"
         $extractPath = "$env:RUNNER_TEMP/extracted"
+        
         Write-Host "Extracting ZIP to: $extractPath"
         
+        # 清理目录
+        if (Test-Path $extractPath) {
+            Remove-Item -Path $extractPath -Recurse -Force
+        }
+        
+        # 创建目录
         New-Item -ItemType Directory -Force -Path $extractPath
         
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        # 使用7-Zip解压，指定编码
+        7z x "$zipPath" -o"$extractPath" -aoa
         
-        # 使用原始方法解压，先不解码文件名
-        try {
-            # 直接解压，不转换编码
-            [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extractPath)
-            Write-Host "直接解压完成"
-            
-            # 然后重命名文件为正确的编码
-            $gbk = [System.Text.Encoding]::GetEncoding("GBK")
-            $utf8 = [System.Text.Encoding]::UTF8
-            
-            Get-ChildItem -Path $extractPath -Recurse | ForEach-Object {
-                try {
-                    # 原始文件名（乱码）
-                    $rawName = $_.Name
-                    
-                    # 获取原始字节
-                    $rawBytes = [System.Text.Encoding]::Default.GetBytes($rawName)
-                    
-                    # 假设原始是GBK，转换为UTF-8
-                    $gbkBytes = $gbk.GetBytes($rawName)
-                    $utf8Bytes = [System.Text.Encoding]::Convert($gbk, $utf8, $gbkBytes)
-                    $newName = $utf8.GetString($utf8Bytes)
-                    
-                    if ($rawName -ne $newName) {
-                        $newPath = Join-Path (Split-Path $_.FullName -Parent) $newName
-                        Rename-Item -Path $_.FullName -NewName $newName -Force
-                        Write-Host "重命名: $rawName -> $newName"
-                    }
-                }
-                catch {
-                    Write-Warning "重命名失败: $($_.Name), 错误: $_"
-                }
-            }
-        }
-        catch {
-            Write-Host "直接解压失败，使用简单方法: $_"
-            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-        }
+        Write-Host "Extraction completed"
         
         echo "EXTRACT_PATH=$extractPath" >> $env:GITHUB_ENV
-      shell: pwsh
-
-    - name: Debug extracted files
-      run: |
-        $folderPath = "$env:EXTRACT_PATH"
-        
-        Write-Host "解压文件夹内容:"
-        Get-ChildItem -Path $folderPath -Recurse | ForEach-Object {
-            Write-Host "$($_.FullName)"
-        }
       shell: pwsh
 
     - name: Build the project
