@@ -21,56 +21,6 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '8.0.x'
-    - name: Debug file encoding
-      run: |
-        $folderPath = "$env:EXTRACT_PATH"
-        
-        # 测试不同编码
-        Write-Host "=== 文件系统编码测试 ==="
-        
-        # 方法1：直接显示文件
-        Write-Host "方法1 - 直接显示:"
-        Get-ChildItem -Path $folderPath -Recurse -File | Select-Object -First 5 | ForEach-Object {
-            Write-Host "文件名: $($_.Name)"
-            Write-Host "完整路径: $($_.FullName)"
-            
-            # 查看原始字节
-            $bytes = [System.Text.Encoding]::Default.GetBytes($_.Name)
-            Write-Host "原始字节 (Hex): $([System.BitConverter]::ToString($bytes))"
-        }
-        
-        # 方法2：使用.NET编码测试
-        Write-Host "`n方法2 - .NET编码测试:"
-        Add-Type -TypeDefinition @"
-        using System;
-        using System.Text;
-        public class EncodingTest {
-            public static void Test(string path) {
-                var files = System.IO.Directory.GetFiles(path, "*.pdf", System.IO.SearchOption.AllDirectories);
-                foreach(var file in files) {
-                    var fileName = System.IO.Path.GetFileName(file);
-                    Console.WriteLine("文件名: " + fileName);
-                    
-                    // 显示编码
-                    byte[] defaultBytes = Encoding.Default.GetBytes(fileName);
-                    byte[] utf8Bytes = Encoding.UTF8.GetBytes(fileName);
-                    byte[] gbkBytes = Encoding.GetEncoding(936).GetBytes(fileName);
-                    
-                    Console.WriteLine("Default编码: " + BitConverter.ToString(defaultBytes));
-                    Console.WriteLine("UTF-8编码: " + BitConverter.ToString(utf8Bytes));
-                    Console.WriteLine("GBK编码: " + BitConverter.ToString(gbkBytes));
-                }
-            }
-        }
-        "@
-        
-        [EncodingTest]::Test($folderPath)
-        
-        # 创建测试文件
-        $testFile = Join-Path $folderPath "test_chinese_中文.pdf"
-        "测试" | Out-File -FilePath $testFile -Encoding UTF8
-        Write-Host "`n已创建测试文件: $testFile"
-      shell: pwsh
 
     - name: Download ZIP file
       id: download
@@ -98,23 +48,22 @@ jobs:
         $extractPath = "$env:RUNNER_TEMP/extracted"
         Write-Host "Extracting ZIP to: $extractPath"
         
-        # 创建目录
         New-Item -ItemType Directory -Force -Path $extractPath
         
-        # 使用 .NET 的 ZipFile 类解压（支持中文）
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        
-        try {
-            # 使用 ZipFile 类解压，中文支持更好
-            [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extractPath)
-            Write-Host "使用 .NET ZipFile 解压完成"
-        }
-        catch {
-            Write-Host "ZipFile 解压失败，使用 Expand-Archive: $_"
-            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-        }
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extractPath)
         
         echo "EXTRACT_PATH=$extractPath" >> $env:GITHUB_ENV
+
+    - name: Debug extracted files
+      run: |
+        $folderPath = "$env:EXTRACT_PATH"
+        
+        Write-Host "解压文件夹内容:"
+        Get-ChildItem -Path $folderPath -Recurse | ForEach-Object {
+            Write-Host "$($_.FullName)"
+        }
+      shell: pwsh
 
     - name: Build the project
       run: |
@@ -124,8 +73,8 @@ jobs:
     - name: Run PDF Processor
       run: |
         $folderPath = "$env:EXTRACT_PATH"
-        
         dotnet run --project win-print.csproj -- "$folderPath" "2"
+      shell: pwsh
 
     - name: Upload processed extracted folder
       if: always()
