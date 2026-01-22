@@ -42,7 +42,7 @@ jobs:
         }
       shell: pwsh
 
-        - name: Extract ZIP file
+    - name: Extract ZIP file
       run: |
         $zipPath = "${{ steps.download.outputs.zip_path }}"
         $extractPath = "$env:RUNNER_TEMP/extracted"
