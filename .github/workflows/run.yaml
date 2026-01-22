@@ -22,11 +22,12 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Setup PowerShell encoding
+    - name: Setup PowerShell encoding to GBK
       run: |
-        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-        [Console]::InputEncoding = [System.Text.Encoding]::UTF8
-        chcp 65001 > $null
+        # 设置 PowerShell 编码为 GBK（Windows 默认）
+        [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(936)  # GBK
+        [Console]::InputEncoding = [System.Text.Encoding]::GetEncoding(936)   # GBK
+        chcp 936 > $null  # 设置控制台代码页为 GBK
       shell: powershell
 
     - name: Download ZIP file
@@ -35,8 +36,9 @@ jobs:
         $zipUrl = "${{ matrix.zip_url }}"
         $outputPath = "$env:RUNNER_TEMP/files.zip"
         
-        $PSDefaultParameterValues['*:Encoding'] = 'utf8'
-        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        # 设置 PowerShell 使用 GBK 编码
+        [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(936)
+        $PSDefaultParameterValues['*:Encoding'] = 'Default'  # 使用系统默认编码（GBK）
         
         Write-Host "Downloading ZIP from: $zipUrl"
         
@@ -57,8 +59,9 @@ jobs:
         $zipPath = "${{ steps.download.outputs.zip_path }}"
         $extractPath = "$env:RUNNER_TEMP/extracted"
         
-        $PSDefaultParameterValues['*:Encoding'] = 'utf8'
-        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        # 使用 GBK 编码
+        [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(936)
+        $PSDefaultParameterValues['*:Encoding'] = 'Default'
         
         Write-Host "Extracting ZIP to: $extractPath"
         
@@ -75,15 +78,16 @@ jobs:
     - name: Run PDF Processor
       run: |
         $folderPath = "$env:EXTRACT_PATH"
-        $batchSize = "${{ github.event.inputs.batch_size || '2' }}"
         
-        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-        dotnet run --project win-print.csproj -- "$folderPath" "$batchSize"
+        # 确保使用 GBK 编码
+        [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(936)
+        
+        dotnet run --project win-print.csproj -- "$folderPath" "2"
 
     - name: Upload processed extracted folder
       if: always()
       uses: actions/upload-artifact@v5
       with:
-        name: processed-folder-${{ matrix.zip_url }}
+        name: processed-folder-${{ strategy.job-index }}
         path: ${{ env.EXTRACT_PATH }}
         retention-days: 7
