@@ -1,0 +1,43 @@
+name: Build and Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: | 
+          8.0.x  # 需要较新版本的 .NET SDK 来支持构建 .NET Framework 项目
+          
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build with dotnet
+      run: dotnet build --configuration Release --framework net47 --no-restore
+      
+    - name: Publish with dotnet
+      run: |
+        dotnet publish --configuration Release --framework net47 --runtime win-x64 --output publish
+      
+    - name: Archive artifacts
+      run: |
+        Compress-Archive -Path publish\* -DestinationPath WinPrint.zip -Force
+      
+    - name: Upload artifact
+      uses: actions/upload-artifact@v5
+      with:
+        name: WinPrint-Executable
+        path: WinPrint.zip
