@@ -228,13 +228,25 @@ namespace WinPrint
                         {
                             results.Add(true);
                             successFiles.Add(path);
-                            Console.WriteLine($"[线程{Task.CurrentId}] ✓ 成功！耗时: {sw.ElapsedMilliseconds}ms");
+                            
+                            TimeSpan elapsed = sw.Elapsed;
+                            string timeText = elapsed.TotalMinutes >= 1 
+                                ? $"{elapsed.Minutes}分{elapsed.Seconds}秒" 
+                                : $"{elapsed.Seconds}.{elapsed.Milliseconds:D3}秒";
+                            
+                            Console.WriteLine($"[线程{Task.CurrentId}] ✓ 成功！耗时: {timeText}");
                         }
                         else
                         {
                             results.Add(false);
                             failedFiles.Add(path);
-                            Console.WriteLine($"[线程{Task.CurrentId}] ✗ 失败！耗时: {sw.ElapsedMilliseconds}ms");
+                            
+                            TimeSpan elapsed = sw.Elapsed;
+                            string timeText = elapsed.TotalMinutes >= 1 
+                                ? $"{elapsed.Minutes}分{elapsed.Seconds}秒" 
+                                : $"{elapsed.Seconds}.{elapsed.Milliseconds:D3}秒";
+                            
+                            Console.WriteLine($"[线程{Task.CurrentId}] ✗ 失败！耗时: {timeText}");
                         }
                     }
                     catch (Exception ex)
