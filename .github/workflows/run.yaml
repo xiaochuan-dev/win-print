@@ -6,6 +6,8 @@ on:
 
 jobs:
   process-pdfs:
+    env:
+      PAGE_NUMBER: 2
     strategy:
       matrix:
         zip_url: [
@@ -80,7 +82,9 @@ jobs:
     - name: Run PDF Processor
       run: |
         $folderPath = "$env:EXTRACT_PATH"
-        dotnet run --project win-print.csproj -- "$folderPath" "2"
+        # 使用环境变量 $env:PAGE_NUMBER
+        Write-Host "Processing PDF with page number: $env:PAGE_NUMBER"
+        dotnet run --project win-print.csproj -- "$folderPath" "$env:PAGE_NUMBER"
       shell: pwsh
 
     - name: Upload processed extracted folder
