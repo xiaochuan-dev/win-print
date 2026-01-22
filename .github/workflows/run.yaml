@@ -62,7 +62,7 @@ jobs:
                 }
             }
         }
-    "@
+        "@
         
         [EncodingTest]::Test($folderPath)
         
