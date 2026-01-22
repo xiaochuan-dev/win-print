@@ -2,12 +2,19 @@ name: Run PDF Processor
 
 on:
   workflow_dispatch:
+    inputs:
+      page_number:
+        description: '要处理的页码（优先级最高，覆盖默认值）'
+        required: false
+        default: '4'
+        type: string
   push:
 
 jobs:
   process-pdfs:
     env:
-      PAGE_NUMBER: 4
+      # 设置默认值，但会被workflow_dispatch输入覆盖
+      DEFAULT_PAGE_NUMBER: 4
     strategy:
       matrix:
         zip_url: [
@@ -30,6 +37,19 @@ jobs:
       run: |
         choco install 7zip -y
       shell: powershell
+
+    - name: Determine page number
+      id: page-number
+      run: |
+        # 优先级：workflow_dispatch输入 > 环境变量默认值
+        if [ -n "${{ github.event.inputs.page_number }}" ]; then
+          echo "使用workflow_dispatch输入的页码: ${{ github.event.inputs.page_number }}"
+          echo "PAGE_NUMBER=${{ github.event.inputs.page_number }}" >> $env:GITHUB_ENV
+        else
+          echo "使用默认页码: ${{ env.DEFAULT_PAGE_NUMBER }}"
+          echo "PAGE_NUMBER=${{ env.DEFAULT_PAGE_NUMBER }}" >> $env:GITHUB_ENV
+        fi
+      shell: bash
 
     - name: Download ZIP file
       id: download
@@ -82,7 +102,7 @@ jobs:
     - name: Run PDF Processor
       run: |
         $folderPath = "$env:EXTRACT_PATH"
-        # 使用环境变量 $env:PAGE_NUMBER
+        # 使用确定的PAGE_NUMBER环境变量
         Write-Host "Processing PDF with page number: $env:PAGE_NUMBER"
         dotnet run --project win-print.csproj -- "$folderPath" "$env:PAGE_NUMBER"
       shell: pwsh
