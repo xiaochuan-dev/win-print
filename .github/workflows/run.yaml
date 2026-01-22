@@ -46,11 +46,23 @@ jobs:
       run: |
         $zipPath = "${{ steps.download.outputs.zip_path }}"
         $extractPath = "$env:RUNNER_TEMP/extracted"
-        
         Write-Host "Extracting ZIP to: $extractPath"
         
+        # 创建目录
         New-Item -ItemType Directory -Force -Path $extractPath
-        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+        
+        # 使用 .NET 的 ZipFile 类解压（支持中文）
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        
+        try {
+            # 使用 ZipFile 类解压，中文支持更好
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extractPath)
+            Write-Host "使用 .NET ZipFile 解压完成"
+        }
+        catch {
+            Write-Host "ZipFile 解压失败，使用 Expand-Archive: $_"
+            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+        }
         
         echo "EXTRACT_PATH=$extractPath" >> $env:GITHUB_ENV
 
