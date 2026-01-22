@@ -52,41 +52,44 @@ jobs:
         
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         
-        # 打开ZIP文件
-        $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-        
-        foreach ($entry in $zip.Entries) {
-            try {
-                # 获取原始文件名（GBK编码）
-                $rawName = $entry.FullName
-                
-                # 将GBK转换为UTF-8
-                $gbk = [System.Text.Encoding]::GetEncoding("GBK")
-                $utf8 = [System.Text.Encoding]::UTF8
-                $gbkBytes = $gbk.GetBytes($rawName)
-                $utf8Bytes = [System.Text.Encoding]::Convert($gbk, $utf8, $gbkBytes)
-                $utf8Name = $utf8.GetString($utf8Bytes)
-                
-                $targetPath = Join-Path $extractPath $utf8Name
-                
-                # 创建目录
-                $targetDir = Split-Path $targetPath -Parent
-                if (!(Test-Path $targetDir)) {
-                    New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+        # 使用原始方法解压，先不解码文件名
+        try {
+            # 直接解压，不转换编码
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extractPath)
+            Write-Host "直接解压完成"
+            
+            # 然后重命名文件为正确的编码
+            $gbk = [System.Text.Encoding]::GetEncoding("GBK")
+            $utf8 = [System.Text.Encoding]::UTF8
+            
+            Get-ChildItem -Path $extractPath -Recurse | ForEach-Object {
+                try {
+                    # 原始文件名（乱码）
+                    $rawName = $_.Name
+                    
+                    # 获取原始字节
+                    $rawBytes = [System.Text.Encoding]::Default.GetBytes($rawName)
+                    
+                    # 假设原始是GBK，转换为UTF-8
+                    $gbkBytes = $gbk.GetBytes($rawName)
+                    $utf8Bytes = [System.Text.Encoding]::Convert($gbk, $utf8, $gbkBytes)
+                    $newName = $utf8.GetString($utf8Bytes)
+                    
+                    if ($rawName -ne $newName) {
+                        $newPath = Join-Path (Split-Path $_.FullName -Parent) $newName
+                        Rename-Item -Path $_.FullName -NewName $newName -Force
+                        Write-Host "重命名: $rawName -> $newName"
+                    }
                 }
-                
-                # 如果是文件（不是目录），则解压
-                if ($entry.Name -ne "") {
-                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetPath, $true)
-                    Write-Host "解压: $utf8Name"
+                catch {
+                    Write-Warning "重命名失败: $($_.Name), 错误: $_"
                 }
-            }
-            catch {
-                Write-Warning "解压失败: $($entry.FullName), 错误: $_"
             }
         }
-        
-        $zip.Dispose()
+        catch {
+            Write-Host "直接解压失败，使用简单方法: $_"
+            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+        }
         
         echo "EXTRACT_PATH=$extractPath" >> $env:GITHUB_ENV
       shell: pwsh
