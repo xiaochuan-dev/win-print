@@ -85,7 +85,7 @@ jobs:
         $batchSize = "${{ github.event.inputs.batch_size }}"
         
         # 构建项目并运行
-        dotnet run --project WinPrint.csproj -- "$folderPath" "$batchSize"
+        dotnet run --project win-print.csproj -- "$folderPath" "$batchSize"
         
         # 或者如果你需要编译后直接运行可执行文件
         # dotnet publish -c Release -o publish
