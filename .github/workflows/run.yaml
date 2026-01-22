@@ -9,7 +9,9 @@ jobs:
     strategy:
       matrix:
         zip_url: [
-          'https://github.com/xiaochuan-dev/pdf-static/releases/download/0.0.1/test.zip'
+          'https://github.com/xiaochuan-dev/pdf-static/releases/download/0.02/test1.zip',
+          'https://github.com/xiaochuan-dev/pdf-static/releases/download/0.02/test2.zip',
+          'https://github.com/xiaochuan-dev/pdf-static/releases/download/0.02/test3.zip'
         ]
     runs-on: windows-latest
     
