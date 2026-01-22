@@ -15,10 +15,7 @@ namespace WinPrint
                 throw new DirectoryNotFoundException($"目录不存在: {folderPath}");
             }
             
-            // 使用 DirectoryInfo 直接获取文件，避免编码问题
             var dir = new DirectoryInfo(folderPath);
-            
-            // 递归获取所有文件
             var files = new List<string>();
             GetFilesRecursive(dir, files);
             
@@ -29,14 +26,11 @@ namespace WinPrint
         {
             try
             {
-                // 获取当前目录的PDF文件
                 foreach (var file in dir.GetFiles("*.pdf"))
                 {
-                    // 使用 FileInfo.FullName，它已经是正确的编码
                     fileList.Add(file.FullName);
                 }
                 
-                // 递归子目录
                 foreach (var subDir in dir.GetDirectories())
                 {
                     GetFilesRecursive(subDir, fileList);
@@ -52,16 +46,17 @@ namespace WinPrint
         {
             try
             {
-                // 检查参数
                 if (args.Length < 1)
                 {
-                    Console.WriteLine("使用方法: WinPrint <文件夹路径> [批次大小]");
-                    Console.WriteLine("示例: WinPrint \"C:\\path\\to\\folder\" 2");
+                    Console.WriteLine("使用方法: WinPrint <文件夹路径> [批次大小] [输出文件夹路径]");
+                    Console.WriteLine("示例: WinPrint \"C:\\path\\to\\folder\" 2 \"C:\\output\"");
+                    Console.WriteLine("注意: 如果不指定输出文件夹，默认会在输入文件夹下创建 'pdf_output' 文件夹");
                     return;
                 }
 
                 string folderPath = args[0];
-                int batchSize = 2; // 默认值
+                int batchSize = 2;
+                string outputRootPath = "";
 
                 if (args.Length >= 2)
                 {
@@ -72,11 +67,22 @@ namespace WinPrint
                     }
                 }
 
+                if (args.Length >= 3)
+                {
+                    outputRootPath = args[2];
+                }
+                else
+                {
+                    // 默认在输入文件夹下创建 pdf_output 文件夹
+                    outputRootPath = Path.Combine(folderPath, "pdf_output");
+                }
+
                 Console.WriteLine($"正在处理文件夹: {folderPath}");
                 Console.WriteLine($"批次大小: {batchSize}");
+                Console.WriteLine($"输出文件夹: {outputRootPath}");
 
                 var pdfPaths = GetAllPdfFiles(folderPath);
-                var pdfList = pdfPaths.ToList(); // 转换为列表以便计数
+                var pdfList = pdfPaths.ToList();
 
                 Console.WriteLine($"找到 {pdfList.Count} 个 PDF 文件");
 
@@ -86,8 +92,8 @@ namespace WinPrint
                     return;
                 }
 
-                var pdfBatchProcessor = new PDFBatchProcessor();
-                pdfBatchProcessor.ProcessBatchParallel(pdfList, batchSize);
+                var pdfBatchProcessor = new PDFBatchProcessor(outputRootPath);
+                pdfBatchProcessor.ProcessBatchParallel(pdfList, batchSize, folderPath);
 
                 Console.WriteLine("处理完成！");
             }

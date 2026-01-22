@@ -11,26 +11,76 @@ namespace WinPrint
     public class PDFBatchProcessor
     {
         private readonly PDFToPDFPrinter _printer;
+        private readonly string _outputRootPath;
 
-        public PDFBatchProcessor()
+        public PDFBatchProcessor(string outputRootPath)
         {
             _printer = new PDFToPDFPrinter();
+            _outputRootPath = outputRootPath;
+            
+            // 确保输出根目录存在
+            if (!Directory.Exists(_outputRootPath))
+            {
+                Directory.CreateDirectory(_outputRootPath);
+            }
         }
 
         /// <summary>
-        /// 处理单个PDF文件，自动生成输出路径
+        /// 获取相对于源文件夹的相对路径
         /// </summary>
-        /// <param name="sourcePdfPath">源PDF文件路径</param>
-        /// <returns>是否成功</returns>
-        public bool ProcessSinglePDF(string sourcePdfPath)
+        private string GetRelativePath(string fullPath, string basePath)
         {
-            return ProcessSinglePDF(sourcePdfPath, GetOutputPath(sourcePdfPath));
+            Uri fullUri = new Uri(fullPath, UriKind.Absolute);
+            Uri baseUri = new Uri(basePath + Path.DirectorySeparatorChar, UriKind.Absolute);
+            
+            return Uri.UnescapeDataString(baseUri.MakeRelativeUri(fullUri).ToString()
+                .Replace('/', Path.DirectorySeparatorChar));
+        }
+
+        /// <summary>
+        /// 获取输出文件路径，保持相同的目录结构
+        /// </summary>
+        public string GetOutputPath(string sourcePdfPath, string sourceRootPath)
+        {
+            // 获取相对路径
+            string relativePath = GetRelativePath(sourcePdfPath, sourceRootPath);
+            
+            // 组合输出路径
+            string outputPath = Path.Combine(_outputRootPath, relativePath);
+            
+            // 获取目录名
+            string outputDirectory = Path.GetDirectoryName(outputPath);
+            
+            // 如果目录不存在则创建
+            if (!Directory.Exists(outputDirectory))
+            {
+                Directory.CreateDirectory(outputDirectory);
+            }
+            
+            // 处理文件名：在文件名后加 _new
+            string fileName = Path.GetFileNameWithoutExtension(relativePath);
+            string extension = Path.GetExtension(relativePath);
+
+            // 如果已经以 _new 结尾，避免重复添加
+            if (fileName.EndsWith("_new"))
+                return Path.Combine(outputDirectory, fileName + extension);
+
+            return Path.Combine(outputDirectory, fileName + "_new" + extension);
+        }
+
+        /// <summary>
+        /// 处理单个PDF文件
+        /// </summary>
+        public bool ProcessSinglePDF(string sourcePdfPath, string sourceRootPath)
+        {
+            string outputPath = GetOutputPath(sourcePdfPath, sourceRootPath);
+            return ProcessSinglePDF(sourcePdfPath, outputPath, sourceRootPath);
         }
 
         /// <summary>
         /// 处理单个PDF文件，指定输出路径
         /// </summary>
-        public bool ProcessSinglePDF(string sourcePdfPath, string outputPdfPath)
+        public bool ProcessSinglePDF(string sourcePdfPath, string outputPdfPath, string sourceRootPath)
         {
             if (!File.Exists(sourcePdfPath))
             {
@@ -40,8 +90,9 @@ namespace WinPrint
 
             try
             {
-                Console.WriteLine($"处理文件: {Path.GetFileName(sourcePdfPath)}");
-                Console.WriteLine($"输出到: {Path.GetFileName(outputPdfPath)}");
+                string relativePath = GetRelativePath(sourcePdfPath, sourceRootPath);
+                Console.WriteLine($"处理文件: {relativePath}");
+                Console.WriteLine($"输出到: {GetRelativePath(outputPdfPath, _outputRootPath)}");
 
                 Stopwatch sw = Stopwatch.StartNew();
                 bool success = _printer.PrintPDFToPDF(sourcePdfPath, outputPdfPath);
@@ -69,7 +120,7 @@ namespace WinPrint
         /// <summary>
         /// 批量处理多个PDF文件（顺序执行）
         /// </summary>
-        public BatchResult ProcessBatch(IEnumerable<string> pdfPaths)
+        public BatchResult ProcessBatch(IEnumerable<string> pdfPaths, string sourceRootPath)
         {
             var result = new BatchResult();
             var paths = pdfPaths.ToList();
@@ -83,7 +134,7 @@ namespace WinPrint
             {
                 try
                 {
-                    if (ProcessSinglePDF(path))
+                    if (ProcessSinglePDF(path, sourceRootPath))
                     {
                         result.SuccessCount++;
                         result.SuccessFiles.Add(path);
@@ -116,9 +167,9 @@ namespace WinPrint
         }
 
         /// <summary>
-        /// 并行处理多个PDF文件（.NET Framework 4.7 支持 Parallel）
+        /// 并行处理多个PDF文件
         /// </summary>
-        public BatchResult ProcessBatchParallel(IEnumerable<string> pdfPaths, int maxDegreeOfParallelism = 4)
+        public BatchResult ProcessBatchParallel(IEnumerable<string> pdfPaths, int maxDegreeOfParallelism, string sourceRootPath)
         {
             var result = new BatchResult();
             var paths = pdfPaths.ToList();
@@ -128,6 +179,7 @@ namespace WinPrint
 
             Console.WriteLine($"开始并行批量处理 {paths.Count} 个文件...");
             Console.WriteLine($"并行度: {maxDegreeOfParallelism}");
+            Console.WriteLine($"输出根目录: {_outputRootPath}");
             Console.WriteLine("=======================================");
 
             Stopwatch totalSw = Stopwatch.StartNew();
@@ -138,8 +190,17 @@ namespace WinPrint
                 {
                     try
                     {
-                        string outputPath = GetOutputPath(path);
-                        Console.WriteLine($"[线程{Task.CurrentId}] 处理: {Path.GetFileName(path)}");
+                        string outputPath = GetOutputPath(path, sourceRootPath);
+                        string relativePath = GetRelativePath(path, sourceRootPath);
+                        
+                        Console.WriteLine($"[线程{Task.CurrentId}] 处理: {relativePath}");
+
+                        // 确保输出目录存在
+                        string outputDirectory = Path.GetDirectoryName(outputPath);
+                        if (!Directory.Exists(outputDirectory))
+                        {
+                            Directory.CreateDirectory(outputDirectory);
+                        }
 
                         Stopwatch sw = Stopwatch.StartNew();
                         bool success = _printer.PrintPDFToPDF(path, outputPath);
@@ -181,25 +242,9 @@ namespace WinPrint
             Console.WriteLine($"失败: {result.FailedCount} 文件");
             Console.WriteLine($"总耗时: {totalSw.ElapsedMilliseconds}ms");
             Console.WriteLine($"平均每个文件: {totalSw.ElapsedMilliseconds / Math.Max(1, paths.Count)}ms");
+            Console.WriteLine($"输出文件夹: {_outputRootPath}");
 
             return result;
-        }
-
-        /// <summary>
-        /// 自动生成输出路径：在文件名后加 _new
-        /// 例如：a.pdf → a_new.pdf
-        /// </summary>
-        public static string GetOutputPath(string sourcePath)
-        {
-            string directory = Path.GetDirectoryName(sourcePath);
-            string fileName = Path.GetFileNameWithoutExtension(sourcePath);
-            string extension = Path.GetExtension(sourcePath);
-
-            // 如果已经以 _new 结尾，避免重复添加
-            if (fileName.EndsWith("_new"))
-                return Path.Combine(directory, fileName + extension);
-
-            return Path.Combine(directory, fileName + "_new" + extension);
         }
 
         /// <summary>

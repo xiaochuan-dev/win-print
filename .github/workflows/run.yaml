@@ -92,5 +92,5 @@ jobs:
       uses: actions/upload-artifact@v5
       with:
         name: processed-folder-${{ strategy.job-index }}
-        path: ${{ env.EXTRACT_PATH }}
+        path: ${{ env.EXTRACT_PATH }}/pdf_output
         retention-days: 7
