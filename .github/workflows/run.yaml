@@ -42,7 +42,7 @@ jobs:
         }
       shell: pwsh
 
-    - name: Extract ZIP file
+        - name: Extract ZIP file
       run: |
         $zipPath = "${{ steps.download.outputs.zip_path }}"
         $extractPath = "$env:RUNNER_TEMP/extracted"
@@ -51,9 +51,45 @@ jobs:
         New-Item -ItemType Directory -Force -Path $extractPath
         
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extractPath)
+        
+        # 打开ZIP文件
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+        
+        foreach ($entry in $zip.Entries) {
+            try {
+                # 获取原始文件名（GBK编码）
+                $rawName = $entry.FullName
+                
+                # 将GBK转换为UTF-8
+                $gbk = [System.Text.Encoding]::GetEncoding("GBK")
+                $utf8 = [System.Text.Encoding]::UTF8
+                $gbkBytes = $gbk.GetBytes($rawName)
+                $utf8Bytes = [System.Text.Encoding]::Convert($gbk, $utf8, $gbkBytes)
+                $utf8Name = $utf8.GetString($utf8Bytes)
+                
+                $targetPath = Join-Path $extractPath $utf8Name
+                
+                # 创建目录
+                $targetDir = Split-Path $targetPath -Parent
+                if (!(Test-Path $targetDir)) {
+                    New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+                }
+                
+                # 如果是文件（不是目录），则解压
+                if ($entry.Name -ne "") {
+                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetPath, $true)
+                    Write-Host "解压: $utf8Name"
+                }
+            }
+            catch {
+                Write-Warning "解压失败: $($entry.FullName), 错误: $_"
+            }
+        }
+        
+        $zip.Dispose()
         
         echo "EXTRACT_PATH=$extractPath" >> $env:GITHUB_ENV
+      shell: pwsh
 
     - name: Debug extracted files
       run: |
