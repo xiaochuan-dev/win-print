@@ -7,7 +7,7 @@ on:
 jobs:
   process-pdfs:
     env:
-      PAGE_NUMBER: 32
+      PAGE_NUMBER: 4
     strategy:
       matrix:
         zip_url: [
