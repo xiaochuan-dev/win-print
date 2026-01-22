@@ -17,10 +17,9 @@ jobs:
       uses: actions/checkout@v6
       
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: | 
-          8.0.x  # 需要较新版本的 .NET SDK 来支持构建 .NET Framework 项目
+        dotnet-version: '8.0.x' # 需要较新版本的 .NET SDK 来支持构建 .NET Framework 项目
           
     - name: Restore dependencies
       run: dotnet restore
