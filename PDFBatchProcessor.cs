@@ -101,12 +101,30 @@ namespace WinPrint
                 if (success && File.Exists(outputPdfPath))
                 {
                     FileInfo info = new FileInfo(outputPdfPath);
-                    Console.WriteLine($"✓ 成功！耗时: {sw.ElapsedMilliseconds}ms, 大小: {info.Length:N0} 字节");
+                    TimeSpan elapsed = TimeSpan.FromMilliseconds(sw.ElapsedMilliseconds);
+                    
+                    if (elapsed.TotalMinutes >= 1)
+                    {
+                        Console.WriteLine($"✓ 成功！耗时: {elapsed.Minutes}分{elapsed.Seconds}秒, 大小: {info.Length:N0} 字节");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"✓ 成功！耗时: {elapsed.Seconds}.{elapsed.Milliseconds:D3}秒, 大小: {info.Length:N0} 字节");
+                    }
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"✗ 失败！耗时: {sw.ElapsedMilliseconds}ms");
+                    TimeSpan elapsed = TimeSpan.FromMilliseconds(sw.ElapsedMilliseconds);
+                    
+                    if (elapsed.TotalMinutes >= 1)
+                    {
+                        Console.WriteLine($"✗ 失败！耗时: {elapsed.Minutes}分{elapsed.Seconds}秒");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"✗ 失败！耗时: {elapsed.Seconds}.{elapsed.Milliseconds:D3}秒");
+                    }
                     return false;
                 }
             }
