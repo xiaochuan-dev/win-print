@@ -14,7 +14,38 @@ namespace WinPrint
             {
                 throw new DirectoryNotFoundException($"目录不存在: {folderPath}");
             }
-            return Directory.EnumerateFiles(folderPath, "*.pdf", SearchOption.AllDirectories);
+            
+            // 使用 DirectoryInfo 直接获取文件，避免编码问题
+            var dir = new DirectoryInfo(folderPath);
+            
+            // 递归获取所有文件
+            var files = new List<string>();
+            GetFilesRecursive(dir, files);
+            
+            return files;
+        }
+
+        private static void GetFilesRecursive(DirectoryInfo dir, List<string> fileList)
+        {
+            try
+            {
+                // 获取当前目录的PDF文件
+                foreach (var file in dir.GetFiles("*.pdf"))
+                {
+                    // 使用 FileInfo.FullName，它已经是正确的编码
+                    fileList.Add(file.FullName);
+                }
+                
+                // 递归子目录
+                foreach (var subDir in dir.GetDirectories())
+                {
+                    GetFilesRecursive(subDir, fileList);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"访问目录 {dir.FullName} 时出错: {ex.Message}");
+            }
         }
 
         static void Main(string[] args)
