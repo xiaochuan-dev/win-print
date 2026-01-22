@@ -6,15 +6,15 @@ on:
       page_number:
         description: '要处理的页码（优先级最高，覆盖默认值）'
         required: false
-        default: '4'
-        type: string
+        default: '2'
+        type: number  # 改为 number 类型
   push:
 
 jobs:
   process-pdfs:
     env:
-      # 设置默认值，但会被workflow_dispatch输入覆盖
-      DEFAULT_PAGE_NUMBER: 4
+      # 设置默认值
+      DEFAULT_PAGE_NUMBER: 2
     strategy:
       matrix:
         zip_url: [
@@ -42,14 +42,18 @@ jobs:
       id: page-number
       run: |
         # 优先级：workflow_dispatch输入 > 环境变量默认值
-        if [ -n "${{ github.event.inputs.page_number }}" ]; then
-          echo "使用workflow_dispatch输入的页码: ${{ github.event.inputs.page_number }}"
-          echo "PAGE_NUMBER=${{ github.event.inputs.page_number }}" >> $env:GITHUB_ENV
-        else
-          echo "使用默认页码: ${{ env.DEFAULT_PAGE_NUMBER }}"
-          echo "PAGE_NUMBER=${{ env.DEFAULT_PAGE_NUMBER }}" >> $env:GITHUB_ENV
-        fi
-      shell: bash
+        # 注意：${{ github.event.inputs.page_number }} 可能会是 null，需要特殊处理
+        $inputNumber = "${{ github.event.inputs.page_number }}"
+        $defaultNumber = "${{ env.DEFAULT_PAGE_NUMBER }}"
+        
+        if ($inputNumber -and $inputNumber -ne 'null' -and $inputNumber -ne '') {
+          Write-Host "使用workflow_dispatch输入的页码: $inputNumber"
+          Write-Host "PAGE_NUMBER=$inputNumber" >> $env:GITHUB_ENV
+        } else {
+          Write-Host "使用默认页码: $defaultNumber"
+          Write-Host "PAGE_NUMBER=$defaultNumber" >> $env:GITHUB_ENV
+        }
+      shell: pwsh
 
     - name: Download ZIP file
       id: download
@@ -104,7 +108,12 @@ jobs:
         $folderPath = "$env:EXTRACT_PATH"
         # 使用确定的PAGE_NUMBER环境变量
         Write-Host "Processing PDF with page number: $env:PAGE_NUMBER"
-        dotnet run --project win-print.csproj -- "$folderPath" "$env:PAGE_NUMBER"
+        # 调试输出
+        Write-Host "env:PAGE_NUMBER value: '$env:PAGE_NUMBER'"
+        Write-Host "PAGE_NUMBER type: $($env:PAGE_NUMBER.GetType().Name)"
+        
+        # 调用程序时传递参数
+        dotnet run --project win-print.csproj -- "$folderPath" $env:PAGE_NUMBER
       shell: pwsh
 
     - name: Upload processed extracted folder
