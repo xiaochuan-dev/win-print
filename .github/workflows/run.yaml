@@ -1,27 +1,17 @@
 name: Run PDF Processor
 
 on:
-  # 手动触发工作流
   workflow_dispatch:
-    inputs:
-      zip_url:
-        description: 'ZIP file URL'
-        required: true
-        default: 'https://limewire.com/d/BuUaR#F3SkXMblX4'
-      batch_size:
-        description: 'Batch size for processing'
-        required: false
-        default: '2'
-  
-  # 或者根据你的需求添加自动触发
   push:
-    branches: [ main ]
-  # schedule:
-  #   - cron: '0 0 * * *' # 每天运行
 
 jobs:
   process-pdfs:
-    runs-on: windows-latest # 或者 ubuntu-latest，根据你的程序需求
+    strategy:
+      matrix:
+        zip_url: [
+          'https://github.com/xiaochuan-dev/pdf-static/releases/download/0.0.1/test.zip'
+        ]
+    runs-on: windows-latest
     
     steps:
     - name: Checkout repository
@@ -30,20 +20,28 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: '8.0.x' # 根据你的 .NET 版本调整
+        dotnet-version: '8.0.x'
+
+    - name: Setup PowerShell encoding
+      run: |
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+        chcp 65001 > $null
+      shell: powershell
 
     - name: Download ZIP file
       id: download
       run: |
-        $zipUrl = "${{ github.event.inputs.zip_url }}"
+        $zipUrl = "${{ matrix.zip_url }}"
         $outputPath = "$env:RUNNER_TEMP/files.zip"
+        
+        $PSDefaultParameterValues['*:Encoding'] = 'utf8'
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
         
         Write-Host "Downloading ZIP from: $zipUrl"
         
-        # 使用 Invoke-WebRequest 下载文件
         Invoke-WebRequest -Uri $zipUrl -OutFile $outputPath -UseBasicParsing
         
-        # 检查文件是否下载成功
         if (Test-Path $outputPath) {
           $fileSize = (Get-Item $outputPath).Length
           Write-Host "Downloaded ZIP file size: $fileSize bytes"
@@ -59,19 +57,14 @@ jobs:
         $zipPath = "${{ steps.download.outputs.zip_path }}"
         $extractPath = "$env:RUNNER_TEMP/extracted"
         
+        $PSDefaultParameterValues['*:Encoding'] = 'utf8'
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        
         Write-Host "Extracting ZIP to: $extractPath"
         
-        # 创建提取目录
         New-Item -ItemType Directory -Force -Path $extractPath
-        
-        # 解压 ZIP 文件
         Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
         
-        Write-Host "Extraction completed"
-        Write-Host "Contents of extracted folder:"
-        Get-ChildItem -Path $extractPath -Recurse | Select-Object -First 20
-        
-        # 输出提取路径供后续步骤使用
         echo "EXTRACT_PATH=$extractPath" >> $env:GITHUB_ENV
 
     - name: Build the project
@@ -82,22 +75,15 @@ jobs:
     - name: Run PDF Processor
       run: |
         $folderPath = "$env:EXTRACT_PATH"
-        $batchSize = "${{ github.event.inputs.batch_size }}"
+        $batchSize = "${{ github.event.inputs.batch_size || '2' }}"
         
-        # 构建项目并运行
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
         dotnet run --project win-print.csproj -- "$folderPath" "$batchSize"
-        
-        # 或者如果你需要编译后直接运行可执行文件
-        # dotnet publish -c Release -o publish
-        # ./publish/WinPrint.exe "$folderPath" "$batchSize"
 
-    - name: Upload processed files as artifact (可选)
-      if: always() # 即使失败也上传
+    - name: Upload processed extracted folder
+      if: always()
       uses: actions/upload-artifact@v5
       with:
-        name: processed-results
-        path: |
-          **/*.log
-          **/*.txt
-          **/*.json
+        name: processed-folder-${{ matrix.zip_url }}
+        path: ${{ env.EXTRACT_PATH }}
         retention-days: 7
